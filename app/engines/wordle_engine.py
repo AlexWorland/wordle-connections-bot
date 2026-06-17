@@ -90,8 +90,38 @@ class WordleEngine:
         header = f"Turn {turn} of {MAX_GUESSES} — {remaining} guess{'es' if remaining != 1 else ''} remaining"
         if not self.guess_rows:
             return f"{header}\nNo guesses yet."
-        lines = [header]
+
+        # Per-letter breakdown so the model never has to count positions
+        lines = [header, ""]
         for word, marks in self.guess_rows:
-            grid = "".join(WORDLE_EMOJI[m] for m in marks)
-            lines.append(f"  {word.upper()}  {grid}")
+            parts = [f"{ch.upper()}{WORDLE_EMOJI[m]}" for ch, m in zip(word, marks)]
+            lines.append("  " + "  ".join(parts))
+
+        # Synthesised knowledge summary — green, yellow, gray sets
+        greens: dict[int, str] = {}   # pos -> letter
+        yellows: dict[str, set[int]] = {}  # letter -> positions where it ISN'T
+        grays: set[str] = set()
+        for word, marks in self.guess_rows:
+            for i, (ch, m) in enumerate(zip(word, marks)):
+                if m is Mark.GREEN:
+                    greens[i] = ch
+                elif m is Mark.YELLOW:
+                    yellows.setdefault(ch, set()).add(i)
+                elif m is Mark.GRAY and ch not in greens.values() and ch not in yellows:
+                    grays.add(ch)
+
+        lines.append("")
+        lines.append("What we know:")
+        if greens:
+            g_parts = [f"position {i+1}={ch.upper()}" for i, ch in sorted(greens.items())]
+            lines.append(f"  🟩 Confirmed: {', '.join(g_parts)}")
+        if yellows:
+            y_parts = [
+                f"{ch.upper()} (not at position{'s' if len(pos) > 1 else ''} {', '.join(str(p+1) for p in sorted(pos))})"
+                for ch, pos in sorted(yellows.items())
+            ]
+            lines.append(f"  🟨 In the word: {', '.join(y_parts)}")
+        if grays:
+            lines.append(f"  ⬜ Not in word: {', '.join(sorted(ch.upper() for ch in grays))}")
+
         return "\n".join(lines)
