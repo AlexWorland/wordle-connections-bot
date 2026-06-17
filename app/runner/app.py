@@ -1,3 +1,4 @@
+import hmac
 import logging
 import os
 from collections.abc import AsyncIterator
@@ -142,7 +143,9 @@ def build_app(settings: Settings) -> FastAPI:
         # destructive (delete + re-post), so it rides the same auth path.
         if not settings.manual_trigger_enabled:
             raise HTTPException(status_code=403, detail="Manual trigger is disabled")
-        if settings.play_auth_token and x_play_token != settings.play_auth_token:
+        if settings.play_auth_token and not hmac.compare_digest(
+            x_play_token or "", settings.play_auth_token
+        ):
             raise HTTPException(status_code=401, detail="Invalid or missing X-Play-Token")
         game_types = _GAME_TYPES[game]
         records = run_cycle(settings, game_types, force=force)
