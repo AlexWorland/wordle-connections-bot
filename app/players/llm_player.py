@@ -1,4 +1,5 @@
 import json
+import re
 from importlib.resources import files
 from typing import Any
 from typing import Protocol
@@ -51,6 +52,14 @@ def _prompt(name: str) -> str:
     return (files("app.players.prompts") / f"{name}.txt").read_text(encoding="utf-8")
 
 
+def _strip_code_fence(text: str) -> str:
+    """Strip ```json ... ``` or ``` ... ``` wrappers that some models add around JSON."""
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    return text.strip()
+
+
 class LLMPlayer:
     def __init__(self, settings: Settings, client: _ChatClient | None = None) -> None:
         self.s = settings
@@ -84,11 +93,13 @@ class LLMPlayer:
         raw = self.client.chat(
             model=self.s.ollama_model,
             messages=history,
-            format=schema.model_json_schema(),
+            format="json",   # loose JSON mode — MLX models return empty on format=<schema>
+            think=False,     # top-level param: stops thinking tokens eating the num_predict budget
             options=self._opts(),
         ).message.content
+        clean = _strip_code_fence(raw)
         history = history + [{"role": "assistant", "content": raw}]
-        return schema.model_validate_json(raw), history  # raises ValidationError on bad JSON
+        return schema.model_validate_json(clean), history  # raises ValidationError on bad JSON
 
     def play_wordle(self, engine: WordleEngine) -> list[TurnRecord]:
         template = _prompt("wordle")

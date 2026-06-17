@@ -1,7 +1,8 @@
 def test_settings_load_with_required_webhook(monkeypatch):
     monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/1/abc")
+    # Pass _env_file=None so a local .env on disk doesn't override test assertions
     from app.config import Settings
-    s = Settings()
+    s = Settings(_env_file=None)
     assert s.ollama_host == "http://ollama:11434"
     assert s.ollama_model == "gemma4:12b"
     assert s.schedule_tz == "America/New_York"

@@ -116,6 +116,7 @@ def test_play_requires_token_when_configured(monkeypatch):
 
 
 def test_ensure_model_pulls_when_absent(monkeypatch):
+    monkeypatch.setenv("OLLAMA_AUTO_PULL", "true")
     appmod, settings = _prepare(monkeypatch)
     pulled: list[str] = []
 

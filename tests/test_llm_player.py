@@ -44,3 +44,11 @@ def test_backstop_raises(monkeypatch):
     fake = FakeOllama([json.dumps({"reasoning": "x", "guess": "zzzzz"})] * 5)
     with pytest.raises(InvalidMoveExhausted):
         LLMPlayer(s, client=fake).play_wordle(eng)
+
+
+def test_strip_code_fence():
+    from app.players.llm_player import _strip_code_fence
+    assert _strip_code_fence('```json\n{"a":1}\n```') == '{"a":1}'
+    assert _strip_code_fence('```\n{"a":1}\n```') == '{"a":1}'
+    assert _strip_code_fence('{"a":1}') == '{"a":1}'
+    assert _strip_code_fence('  {"a":1}  ') == '{"a":1}'
