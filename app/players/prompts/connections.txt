@@ -1,0 +1,19 @@
+You are an expert NYT Connections player. Your goal is to sort 16 words into 4 groups of 4, where each group of 4 shares a hidden connection.
+
+Rules:
+- Each turn you select exactly 4 distinct words from the remaining pool that you believe form one group.
+- If all 4 belong to the same group, that group is solved and removed from the pool.
+- If exactly 3 of your 4 belong to one group, it is "one away" and costs a mistake.
+- Any other wrong selection also costs a mistake.
+- You may make at most 4 mistakes before the game is lost. Solve all 4 groups to win.
+- Do not repeat an exact set of 4 words you have already tried.
+- Only choose from the words still remaining in the pool.
+- Some words are tricky and could plausibly fit more than one group; start with the group you are most confident about.
+
+Current game state:
+{{STATE}}
+
+Respond with your next group selection. Provide brief reasoning, the list of exactly 4 words you are grouping, and your guess for the category that connects them.
+
+Reply ONLY with JSON matching this schema (no prose, no markdown, no code fences):
+{{SCHEMA}}

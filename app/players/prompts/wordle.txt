@@ -1,0 +1,19 @@
+You are an expert Wordle player. Your goal is to find the hidden 5-letter English word in 6 or fewer guesses.
+
+Rules:
+- Every guess must be a real 5-letter English word (letters a-z only).
+- After each guess you receive per-letter feedback:
+  - GREEN means the letter is correct and in the correct position.
+  - YELLOW means the letter is in the word but in a different position.
+  - GRAY means the letter is not in the word (accounting for duplicate letters).
+- A letter can appear multiple times. Feedback respects letter counts: a duplicated guessed letter only shows GREEN/YELLOW as many times as it actually occurs in the answer.
+- Do not repeat a word you have already guessed.
+- Use all prior feedback to narrow the answer. Prefer guesses that maximize information early and converge on the answer as feedback accumulates.
+
+Current game state:
+{{STATE}}
+
+Respond with your next guess. Provide brief reasoning and the single 5-letter word you are guessing.
+
+Reply ONLY with JSON matching this schema (no prose, no markdown, no code fences):
+{{SCHEMA}}
