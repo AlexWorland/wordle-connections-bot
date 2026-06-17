@@ -81,6 +81,10 @@ T1 scaffold/config ─┬─> T2 models ─┬─> T3 wordle-engine ──┐
 - [ ] **Step 1: Write `pyproject.toml`**
 
 ```toml
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "wordle-connections-bot"
 version = "0.1.0"
@@ -98,6 +102,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "respx>=0.21", "ruff>=0.5", "mypy>=1.10"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+"app.wordlists" = ["*.txt"]
+"app.players.prompts" = ["*.txt"]
 
 [tool.ruff]
 line-length = 100
@@ -182,7 +193,7 @@ def get_settings() -> Settings:
 
 Create empty `app/__init__.py`, `app/engines/__init__.py`, `app/puzzles/__init__.py`, `app/players/__init__.py`, `app/storage/__init__.py`, `app/output/__init__.py`, `app/runner/__init__.py`, `tests/__init__.py`. Write `.env.example` listing every env var from the spec §6 with placeholder values and `DISCORD_WEBHOOK_URL=` left blank.
 
-- [ ] **Step 6: Run tests + lint** — `pip install -e ".[dev]"` then `pytest tests/test_config.py -v` → PASS; `ruff check .` → clean.
+- [ ] **Step 6: Set up venv + run tests** — `python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"` (this Mac is PEP 668 externally-managed, so a venv is required), then `.venv/bin/pytest tests/test_config.py -v` → PASS; `.venv/bin/ruff check .` → clean. All later tasks run tools via `.venv/bin/<tool>`. (`.venv/` is git-ignored.)
 
 - [ ] **Step 7: Commit** — `git add -A && git commit -m "feat: project scaffold and settings"`
 
