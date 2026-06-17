@@ -84,11 +84,14 @@ class WordleEngine:
         return marks
 
     def render_state(self) -> str:
+        used = self.attempts_used
+        remaining = MAX_GUESSES - used
+        turn = used + 1
+        header = f"Turn {turn} of {MAX_GUESSES} — {remaining} guess{'es' if remaining != 1 else ''} remaining"
         if not self.guess_rows:
-            return "No guesses yet. You have 6 attempts to find a 5-letter word."
-        lines = []
+            return f"{header}\nNo guesses yet."
+        lines = [header]
         for word, marks in self.guess_rows:
             grid = "".join(WORDLE_EMOJI[m] for m in marks)
-            lines.append(f"{word.upper()}  {grid}")
-        lines.append(f"Attempts remaining: {MAX_GUESSES - self.attempts_used}")
+            lines.append(f"  {word.upper()}  {grid}")
         return "\n".join(lines)

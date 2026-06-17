@@ -64,11 +64,27 @@ class ConnectionsEngine:
         return [g for g in self.puzzle.groups if g.title not in solved]
 
     def render_state(self) -> str:
+        turn = len(self.guess_rows) + 1
+        solved_count = len(self.solved_groups)
+        mistakes_left = MAX_MISTAKES - self.mistakes
+        header = (
+            f"Turn {turn} — "
+            f"{solved_count}/4 groups solved, "
+            f"{self.mistakes} mistake{'s' if self.mistakes != 1 else ''} used, "
+            f"{mistakes_left} mistake{'s' if mistakes_left != 1 else ''} remaining"
+        )
         words = sorted(self.remaining_words)
-        solved = "\n".join(f"SOLVED [{g.title}]: {', '.join(g.words)}" for g in self.solved_groups)
-        tried = "; ".join("/".join(r) for r in self.guess_rows) or "none"
-        return (f"Remaining words: {', '.join(words)}\n{solved}\n"
-                f"Mistakes used: {self.mistakes}/{MAX_MISTAKES}\nAlready tried: {tried}")
+        lines = [header, f"Remaining words ({len(words)}): {', '.join(words)}"]
+        if self.solved_groups:
+            lines.append("Solved groups:")
+            for g in self.solved_groups:
+                lines.append(f"  ✅ {g.title}: {', '.join(g.words)}")
+        if self.guess_rows:
+            lines.append("Already tried (wrong): " +
+                         "; ".join(", ".join(r) for r in self.guess_rows
+                                   if frozenset(r) not in {frozenset(g.words) for g in self.solved_groups}
+                                   ) or "none")
+        return "\n".join(lines)
 
     def render_share_grid(self) -> str:
         return "\n".join("".join(LEVEL_EMOJI[self._word_to_group[w].level] for w in row)
