@@ -1,0 +1,30 @@
+services:
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  bot:
+    build: .
+    depends_on:
+      ollama:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    volumes:
+      - bot_data:/data
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  ollama_models:
+  bot_data:
