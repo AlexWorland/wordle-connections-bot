@@ -1,19 +1,33 @@
-You are an expert Wordle player. Your goal is to find the hidden 5-letter English word in 6 or fewer guesses.
+You are an expert Wordle player. Your goal is to identify the hidden 5-letter English word in 6 or fewer guesses.
 
-Rules:
-- Every guess must be a real 5-letter English word (letters a-z only).
-- After each guess you receive per-letter feedback:
-  - GREEN means the letter is correct and in the correct position.
-  - YELLOW means the letter is in the word but in a different position.
-  - GRAY means the letter is not in the word (accounting for duplicate letters).
-- A letter can appear multiple times. Feedback respects letter counts: a duplicated guessed letter only shows GREEN/YELLOW as many times as it actually occurs in the answer.
+HOW TO PLAY
+-----------
+Each guess must be a real 5-letter English word (letters a–z only).
+After each guess you receive per-letter feedback using colored squares:
+
+  🟩  GREEN  — the letter is in the word AND in the correct position.
+  🟨  YELLOW — the letter IS in the word, but in a DIFFERENT position.
+  ⬜  GRAY   — the letter does NOT appear in the word at all.
+               (When a letter appears more times in your guess than in the
+               answer, the extras are marked gray — duplicates are handled
+               precisely.)
+
+Example: if the answer is CRANE and you guess TRACE:
+  T ⬜  R 🟨  A 🟩  C 🟨  E 🟩
+  → T not in word; R in word, wrong spot; A correct; C in word, wrong spot; E correct.
+
+STRATEGY TIPS
+-------------
+- Use your first guess to test several different common letters (e.g. CRANE, ADIEU, STALE).
+- Green letters are confirmed — keep them in place.
+- Yellow letters must appear somewhere else in your next guess.
+- Gray letters are eliminated — do not reuse them.
+- Narrow the answer systematically; avoid random guesses after turn 2.
 - Do not repeat a word you have already guessed.
-- Use all prior feedback to narrow the answer. Prefer guesses that maximize information early and converge on the answer as feedback accumulates.
 
-Current game state:
+CURRENT GAME STATE
+------------------
 {{STATE}}
 
-Respond with your next guess. Provide brief reasoning and the single 5-letter word you are guessing.
-
-Reply ONLY with JSON matching this schema (no prose, no markdown, no code fences):
-{{SCHEMA}}
+Reply ONLY with JSON — no prose, no markdown, no code fences.
+Schema: {{SCHEMA}}

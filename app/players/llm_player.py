@@ -83,13 +83,26 @@ class LLMPlayer:
         correction: str | None,
         history: list[dict[str, str]],
     ) -> tuple[BaseModel, list[dict[str, str]]]:
+        schema_hint = json.dumps(schema.model_json_schema())
         if not history:
-            content = template.replace("{{STATE}}", state).replace(
-                "{{SCHEMA}}", json.dumps(schema.model_json_schema())
-            )
+            # First turn of the game: send full rules + initial state.
+            content = template.replace("{{STATE}}", state).replace("{{SCHEMA}}", schema_hint)
             history = [{"role": "user", "content": content}]
-        if correction:
+        elif correction:
+            # Invalid move: append the specific rejection message so the model self-corrects.
             history = history + [{"role": "user", "content": correction}]
+        else:
+            # New turn after a valid guess: show updated state; rules already in context.
+            history = history + [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Updated game state:\n{state}\n\n"
+                        f"Reply ONLY with JSON — no prose, no markdown, no code fences.\n"
+                        f"Schema: {schema_hint}"
+                    ),
+                }
+            ]
         raw = self.client.chat(
             model=self.s.ollama_model,
             messages=history,
@@ -104,8 +117,8 @@ class LLMPlayer:
     def play_wordle(self, engine: WordleEngine) -> list[TurnRecord]:
         template = _prompt("wordle")
         turns: list[TurnRecord] = []
+        history: list[dict[str, str]] = []  # one conversation for the whole game
         while engine.status is None:
-            history: list[dict[str, str]] = []
             correction: str | None = None
             retries = 0
             while True:
@@ -140,8 +153,8 @@ class LLMPlayer:
     def play_connections(self, engine: ConnectionsEngine) -> list[TurnRecord]:
         template = _prompt("connections")
         turns: list[TurnRecord] = []
+        history: list[dict[str, str]] = []  # one conversation for the whole game
         while engine.status is None:
-            history: list[dict[str, str]] = []
             correction: str | None = None
             retries = 0
             while True:
