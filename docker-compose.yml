@@ -22,7 +22,10 @@ services:
     volumes:
       - bot_data:/data
     ports:
-      - "8080:8080"
+      # Bind to loopback only: /play is a state-changing endpoint, so it must not
+      # be reachable from the LAN. Reach it from the host, or front it with an
+      # authenticated reverse proxy. See PLAY_AUTH_TOKEN for shared-secret auth.
+      - "127.0.0.1:8080:8080"
     restart: unless-stopped
 
 volumes:

@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     schedule_cron: str = "15 0 * * *"
     schedule_tz: str = "America/New_York"
     manual_trigger_enabled: bool = True
+    play_auth_token: str = ""
     max_invalid_retries: int = 10
     wordle_hard_mode: bool = False
     nyt_user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"

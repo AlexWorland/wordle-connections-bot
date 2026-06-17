@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI
+from fastapi import Header
+from fastapi import HTTPException
 from ollama import Client
 
 from app.config import Settings
@@ -133,7 +135,15 @@ def build_app(settings: Settings) -> FastAPI:
     def play(
         game: Literal["wordle", "connections", "both"] = "both",
         force: bool = False,
+        x_play_token: str | None = Header(default=None),
     ) -> dict[str, object]:
+        # Gate the state-changing endpoint: a deployment can disable it via config,
+        # and (when a token is configured) every call must present it. force=true is
+        # destructive (delete + re-post), so it rides the same auth path.
+        if not settings.manual_trigger_enabled:
+            raise HTTPException(status_code=403, detail="Manual trigger is disabled")
+        if settings.play_auth_token and x_play_token != settings.play_auth_token:
+            raise HTTPException(status_code=401, detail="Invalid or missing X-Play-Token")
         game_types = _GAME_TYPES[game]
         records = run_cycle(settings, game_types, force=force)
         return {

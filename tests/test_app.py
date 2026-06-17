@@ -81,6 +81,40 @@ def test_play_rejects_unknown_game(monkeypatch):
     assert resp.status_code == 422
 
 
+def test_play_forbidden_when_manual_trigger_disabled(monkeypatch):
+    monkeypatch.setenv("MANUAL_TRIGGER_ENABLED", "false")
+    appmod, settings = _prepare(monkeypatch)
+
+    def _no_run(s, game_types, force=False):
+        raise AssertionError("run_cycle must not run when manual trigger is disabled")
+
+    monkeypatch.setattr(appmod, "run_cycle", _no_run)
+    monkeypatch.setattr(appmod, "_ollama_reachable", lambda s: True)
+
+    client = TestClient(appmod.build_app(settings))
+    assert client.post("/play?game=wordle").status_code == 403
+
+
+def test_play_requires_token_when_configured(monkeypatch):
+    monkeypatch.setenv("PLAY_AUTH_TOKEN", "s3cret")
+    appmod, settings = _prepare(monkeypatch)
+    calls: list[tuple[list[str], bool]] = []
+
+    def _stub_run_cycle(s, game_types, force=False):
+        calls.append((game_types, force))
+        return []
+
+    monkeypatch.setattr(appmod, "run_cycle", _stub_run_cycle)
+    monkeypatch.setattr(appmod, "_ollama_reachable", lambda s: True)
+
+    client = TestClient(appmod.build_app(settings))
+    assert client.post("/play?game=wordle").status_code == 401
+    assert client.post("/play?game=wordle", headers={"X-Play-Token": "nope"}).status_code == 401
+    resp = client.post("/play?game=wordle", headers={"X-Play-Token": "s3cret"})
+    assert resp.status_code == 200
+    assert calls == [(["wordle"], False)]
+
+
 def test_ensure_model_pulls_when_absent(monkeypatch):
     appmod, settings = _prepare(monkeypatch)
     pulled: list[str] = []
