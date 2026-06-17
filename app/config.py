@@ -1,5 +1,7 @@
 from functools import lru_cache
+from urllib.parse import urlsplit, urlunsplit
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,13 +29,31 @@ class Settings(BaseSettings):
     db_path: str = "/data/games.db"
     log_level: str = "INFO"
 
+    @field_validator("discord_webhook_url")
+    @classmethod
+    def _validate_webhook_shape(cls, value: str) -> str:
+        parts = urlsplit(value)
+        if parts.scheme not in ("http", "https") or "/webhooks/" not in parts.path:
+            raise ValueError("DISCORD_WEBHOOK_URL must be a Discord webhook URL of the form "
+                             "https://discord.com/api/webhooks/<id>/<token>")
+        return value.rstrip("/")
+
     @property
     def game_type_list(self) -> list[str]:
         return [g.strip() for g in self.game_types.split(",") if g.strip()]
 
     def redacted_webhook(self) -> str:
-        # keep scheme+host, drop the token segment
-        return self.discord_webhook_url.rsplit("/", 1)[0] + "/***"
+        """Webhook URL with the secret token (final path segment) masked.
+
+        Parses by URL structure rather than naive string-splitting so a trailing
+        slash or query string cannot bypass redaction and leak the token.
+        """
+        parts = urlsplit(self.discord_webhook_url)
+        segments = [s for s in parts.path.split("/") if s]
+        if segments:
+            segments[-1] = "***"  # the token is the final path segment
+        redacted_path = "/" + "/".join(segments)
+        return urlunsplit((parts.scheme, parts.netloc, redacted_path, "", ""))
 
 
 @lru_cache
