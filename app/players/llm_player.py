@@ -7,6 +7,7 @@ from typing import Protocol
 from ollama import Client
 from pydantic import BaseModel
 from pydantic import ValidationError
+from pydantic import field_validator
 
 from app.config import Settings
 from app.engines.connections_engine import ConnectionsEngine
@@ -23,6 +24,16 @@ class ConnectionsTurn(BaseModel):
     reasoning: str
     group: list[str]
     category_guess: str
+
+    @field_validator("group", mode="before")
+    @classmethod
+    def _unwrap_items(cls, v: object) -> object:
+        # Some models echo the JSON Schema structure and return {"items": [...]}
+        # instead of a plain list. Unwrap it transparently.
+        if isinstance(v, dict):
+            if "items" in v and isinstance(v["items"], list):
+                return v["items"]
+        return v
 
 
 class InvalidMoveExhausted(Exception):
