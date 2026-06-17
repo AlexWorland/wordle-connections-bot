@@ -69,13 +69,21 @@ class WordleEngine:
         return None
 
     def _hard_mode_problem(self, g: str) -> MoveProblem | None:
+        # Collect ALL violations in one pass so the corrective message is complete.
+        violations: list[str] = []
         for word, marks in self.guess_rows:
             for i, m in enumerate(marks):
                 if m is Mark.GREEN and g[i] != word[i]:
-                    return MoveProblem("hard_mode", f"Position {i + 1} must be '{word[i].upper()}'.")
-                if m is Mark.YELLOW and word[i] not in g:
-                    return MoveProblem("hard_mode", f"Your guess must contain '{word[i].upper()}'.")
-        return None
+                    violations.append(f"position {i + 1} must be '{word[i].upper()}'")
+                elif m is Mark.YELLOW and word[i] not in g:
+                    violations.append(f"must include '{word[i].upper()}'")
+        if not violations:
+            return None
+        return MoveProblem(
+            "hard_mode",
+            f'"{g.upper()}" violates hard mode: {"; ".join(violations)}. '
+            f"Your guess must satisfy ALL of these constraints — check the REQUIRED section above.",
+        )
 
     def apply_guess(self, guess: str) -> list[Mark]:
         g = guess.strip().lower()
@@ -123,5 +131,17 @@ class WordleEngine:
             lines.append(f"  🟨 In the word: {', '.join(y_parts)}")
         if grays:
             lines.append(f"  ⬜ Not in word: {', '.join(sorted(ch.upper() for ch in grays))}")
+
+        # Hard-mode checklist — explicit per-letter requirements the model must satisfy
+        if greens or yellows:
+            lines.append("")
+            lines.append("⚠️  REQUIRED for your next guess (hard mode):")
+            for i, ch in sorted(greens.items()):
+                lines.append(f"  • Position {i+1} MUST be '{ch.upper()}'")
+            for ch, bad_positions in sorted(yellows.items()):
+                pos_str = ", ".join(str(p + 1) for p in sorted(bad_positions))
+                lines.append(
+                    f"  • MUST include '{ch.upper()}' (NOT at position{'s' if len(bad_positions) > 1 else ''} {pos_str})"
+                )
 
         return "\n".join(lines)

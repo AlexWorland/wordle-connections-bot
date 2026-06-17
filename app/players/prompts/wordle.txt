@@ -16,13 +16,20 @@ Example: if the answer is CRANE and you guess TRACE:
   T ⬜  R 🟨  A 🟩  C 🟨  E 🟩
   → T not in word; R in word, wrong spot; A correct; C in word, wrong spot; E correct.
 
+HARD MODE RULES (MANDATORY — every guess must obey these)
+----------------------------------------------------------
+1. Every 🟩 GREEN letter MUST appear in the EXACT SAME POSITION in every future guess.
+2. Every 🟨 YELLOW letter MUST appear SOMEWHERE in every future guess (just not in the position it was yellow).
+
+These are not optional hints — they are hard requirements. A guess that ignores a confirmed green
+or omits a known yellow letter is INVALID and will be rejected.
+
 STRATEGY TIPS
 -------------
-- Use your first guess to test several different common letters (e.g. CRANE, ADIEU, STALE).
-- Green letters are confirmed — keep them in place.
-- Yellow letters must appear somewhere else in your next guess.
+- Use your first guess to test several different common letters (e.g. CRANE, STARE, AUDIO).
+- After each guess, check the "What we know" summary and build your next word around those constraints.
 - Gray letters are eliminated — do not reuse them.
-- Narrow the answer systematically; avoid random guesses after turn 2.
+- Narrow the answer systematically using the confirmed and in-word letters.
 - Do not repeat a word you have already guessed.
 
 CURRENT GAME STATE
