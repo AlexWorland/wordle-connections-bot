@@ -1,0 +1,44 @@
+{
+  "status": "OK",
+  "id": 1177,
+  "print_date": "2026-06-17",
+  "editor": "Wyna Liu",
+  "categories": [
+    {
+      "title": "ALCOVE",
+      "cards": [
+        {"content": "CAVITY", "position": 1},
+        {"content": "NICHE", "position": 15},
+        {"content": "NOOK", "position": 8},
+        {"content": "RECESS", "position": 13}
+      ]
+    },
+    {
+      "title": "BODILY WORDS FOR ATTITUDE",
+      "cards": [
+        {"content": "CHEEK", "position": 0},
+        {"content": "GALL", "position": 4},
+        {"content": "NERVE", "position": 9},
+        {"content": "SPINE", "position": 12}
+      ]
+    },
+    {
+      "title": "FIGURES IN GREEK MYTH",
+      "cards": [
+        {"content": "ATLAS", "position": 2},
+        {"content": "HERA", "position": 5},
+        {"content": "PARIS", "position": 7},
+        {"content": "TITAN", "position": 11}
+      ]
+    },
+    {
+      "title": "STARTING WITH SYNONYMS FOR \"ILK\"",
+      "cards": [
+        {"content": "KINDLE", "position": 3},
+        {"content": "SORTING", "position": 6},
+        {"content": "TYPEFACE", "position": 10},
+        {"content": "BREEDING", "position": 14}
+      ]
+    }
+  ]
+}
