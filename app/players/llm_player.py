@@ -71,6 +71,37 @@ def _strip_code_fence(text: str) -> str:
     return text.strip()
 
 
+def _sanitize_json_strings(text: str) -> str:
+    """Escape literal newlines/control chars inside JSON string values.
+
+    Some models embed raw newlines in multi-line reasoning strings, which is
+    invalid JSON. This walks the text character-by-character, tracking string
+    boundaries, and escapes any bare control chars found inside string values.
+    """
+    out: list[str] = []
+    in_string = False
+    escape_next = False
+    for ch in text:
+        if escape_next:
+            out.append(ch)
+            escape_next = False
+        elif ch == "\\":
+            out.append(ch)
+            escape_next = True
+        elif ch == '"':
+            out.append(ch)
+            in_string = not in_string
+        elif in_string and ch == "\n":
+            out.append("\\n")
+        elif in_string and ch == "\r":
+            out.append("\\r")
+        elif in_string and ch == "\t":
+            out.append("\\t")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
 class LLMPlayer:
     def __init__(self, settings: Settings, client: _ChatClient | None = None) -> None:
         self.s = settings
@@ -121,7 +152,7 @@ class LLMPlayer:
             think=False,     # top-level param: stops thinking tokens eating the num_predict budget
             options=self._opts(),
         ).message.content
-        clean = _strip_code_fence(raw)
+        clean = _sanitize_json_strings(_strip_code_fence(raw))
         history = history + [{"role": "assistant", "content": raw}]
         return schema.model_validate_json(clean), history  # raises ValidationError on bad JSON
 

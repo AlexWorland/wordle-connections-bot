@@ -52,3 +52,17 @@ def test_strip_code_fence():
     assert _strip_code_fence('```\n{"a":1}\n```') == '{"a":1}'
     assert _strip_code_fence('{"a":1}') == '{"a":1}'
     assert _strip_code_fence('  {"a":1}  ') == '{"a":1}'
+
+
+def test_sanitize_json_strings():
+    from app.players.llm_player import _sanitize_json_strings
+    # literal newline inside a string value → escaped
+    raw = '{"reasoning": "line1\nline2\nline3", "guess": "crane"}'
+    clean = _sanitize_json_strings(raw)
+    import json
+    parsed = json.loads(clean)
+    assert parsed["reasoning"] == "line1\nline2\nline3"  # json.loads unescapes back to newline
+    assert parsed["guess"] == "crane"
+    # structural newlines outside strings are preserved
+    raw2 = '{\n  "guess": "token"\n}'
+    assert json.loads(_sanitize_json_strings(raw2))["guess"] == "token"
