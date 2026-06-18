@@ -16,6 +16,7 @@ class ConnectionsEngine:
         self.solved_groups: list[ConnectionsGroup] = []
         self._past: set[frozenset[str]] = set()
         self.guess_rows: list[list[str]] = []
+        self._wrong_attempts: list[tuple[list[str], SubmitResult]] = []  # (words, result) for wrong guesses only
         self._order = list(self._word_to_group)
         self._rng.shuffle(self._order)
 
@@ -55,9 +56,11 @@ class ConnectionsEngine:
             self.solved_groups.append(matched)
             return SubmitResult.WIN if len(self.solved_groups) == 4 else SubmitResult.CORRECT
         self.mistakes += 1
+        result = SubmitResult.ONE_AWAY if best == 3 else SubmitResult.INCORRECT
+        self._wrong_attempts.append((list(words), result))
         if self.mistakes >= MAX_MISTAKES:
             return SubmitResult.LOSS
-        return SubmitResult.ONE_AWAY if best == 3 else SubmitResult.INCORRECT
+        return result
 
     def _unsolved(self) -> list[ConnectionsGroup]:
         solved = {g.title for g in self.solved_groups}
@@ -65,25 +68,45 @@ class ConnectionsEngine:
 
     def render_state(self) -> str:
         turn = len(self.guess_rows) + 1
-        solved_count = len(self.solved_groups)
         mistakes_left = MAX_MISTAKES - self.mistakes
         header = (
             f"Turn {turn} — "
-            f"{solved_count}/4 groups solved, "
+            f"{len(self.solved_groups)}/4 groups solved, "
             f"{self.mistakes} mistake{'s' if self.mistakes != 1 else ''} used, "
             f"{mistakes_left} mistake{'s' if mistakes_left != 1 else ''} remaining"
         )
+        lines = [header, ""]
+
+        # Remaining words
         words = sorted(self.remaining_words)
-        lines = [header, f"Remaining words ({len(words)}): {', '.join(words)}"]
+        lines.append(f"Remaining words ({len(words)}): {', '.join(words)}")
+
+        # Solved groups
         if self.solved_groups:
+            lines.append("")
             lines.append("Solved groups:")
             for g in self.solved_groups:
-                lines.append(f"  ✅ {g.title}: {', '.join(g.words)}")
-        if self.guess_rows:
-            lines.append("Already tried (wrong): " +
-                         "; ".join(", ".join(r) for r in self.guess_rows
-                                   if frozenset(r) not in {frozenset(g.words) for g in self.solved_groups}
-                                   ) or "none")
+                lines.append(f"  ✅ {g.title}: {', '.join(sorted(g.words))}")
+
+        # Previous wrong attempts — with result label and ONE_AWAY deduction hint
+        if self._wrong_attempts:
+            lines.append("")
+            lines.append("Previous wrong attempts:")
+            for attempt_words, result in self._wrong_attempts:
+                if result is SubmitResult.ONE_AWAY:
+                    lines.append(f"  🔴 ONE_AWAY: {', '.join(attempt_words)}")
+                    lines.append(
+                        f"       ↳ Exactly 3 of these 4 belong to the same group. "
+                        f"One word is wrong — swap it and try again."
+                    )
+                else:
+                    lines.append(f"  ❌ INCORRECT: {', '.join(attempt_words)}")
+
+        # Hard constraint: do not repeat
+        if self._wrong_attempts:
+            lines.append("")
+            lines.append("⚠️  DO NOT repeat any of the above exact sets of 4 words.")
+
         return "\n".join(lines)
 
     def render_share_grid(self) -> str:
