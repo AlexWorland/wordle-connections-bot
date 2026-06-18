@@ -11,21 +11,47 @@ Outcomes:
 
 You may make at most 4 mistakes in total. Solve all 4 groups to win.
 
-GROUP DIFFICULTY (easiest → hardest)
--------------------------------------
-  🟨  YELLOW  — straightforward, direct connection
-  🟩  GREEN   — needs more specific knowledge
-  🟦  BLUE    — tricky, abstract, or cultural reference
-  🟪  PURPLE  — wordplay, puns, or fill-in-the-blank (hardest)
+GROUP DIFFICULTY (hardest → easiest)
+--------------------------------------
+  🟪  PURPLE  — HARDEST. Always wordplay, puns, or a hidden pattern (e.g. "___ BALL", words that
+                follow/precede a hidden word, fill-in-the-blank, double meanings). The connection
+                is almost never literal — you have to think sideways.
+  🟦  BLUE    — Tricky. Abstract, cultural, or knowledge-based. The connection is real but not
+                immediately obvious.
+  🟩  GREEN   — Moderate. Requires specific knowledge; the category is clear once you see it.
+  🟨  YELLOW  — Easiest. Straightforward, direct connection. Will be obvious after the others
+                are solved.
 
-The difficulty colors are hidden until a group is solved. Start with the group you are most confident about.
+The colors are hidden until a group is solved. You must deduce difficulty from the words themselves.
+
+SOLVING ORDER STRATEGY — HARDEST FIRST
+---------------------------------------
+Always attempt groups in this order: PURPLE → BLUE → GREEN → YELLOW.
+
+Why hardest first:
+  1. Purple wordplay is easiest to spot with ALL 16 words visible. After easier groups are
+     removed, you lose context that might reveal the pun or hidden pattern.
+  2. Yellow (the obvious group) will still be obvious even when only 4 words remain.
+  3. Solving easy groups first and hoping the hard ones reveal themselves is a trap — it
+     wastes mistakes on guesses that were never close.
+
+HOW TO FIND THE PURPLE GROUP
+------------------------------
+Before guessing anything, scan all 16 words for:
+  - A hidden word that can precede or follow ALL 4 words (e.g. "FIRE___" or "___FIRE")
+  - Words that are all homophones, anagrams, or contain a hidden smaller word
+  - Words that look like they belong to different categories but share a non-literal link
+  - Fill-in-the-blank phrases: "___ TYPE", "TYPE ___"
+  - Double meanings — each word has an alternate sense that unites them
+
+If you can spot the 4 words that fit a tricky sideways pattern, guess that group first even
+if you are less confident than you are about an obvious group.
 
 STRATEGY TIPS
 -------------
-- Look for the single clearest, most specific connection before committing.
-- Beware of red herrings — words that seem to fit a group but actually belong elsewhere.
-- Words are often surprising: a group might be "___ BALL" words, or "types of X", or all start with the same hidden word.
-- If you see a strong group of 4, play it immediately before doubting yourself.
+- Beware of red herrings — a word that seems to belong to one group often belongs to another.
+  A word like KINDLE might look like a verb for "ignite" but could be "___ TYPE" (Kindle = e-reader brand).
+- Commit to your best PURPLE candidate first, even under uncertainty.
 - Do not repeat an exact set of 4 words you have already tried.
 - Only choose from the words still remaining in the pool.
 
