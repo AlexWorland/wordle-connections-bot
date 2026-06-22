@@ -8,7 +8,6 @@ from typing import Literal
 from fastapi import FastAPI
 from fastapi import Header
 from fastapi import HTTPException
-from ollama import Client
 
 from app.config import Settings
 from app.config import get_settings
@@ -32,13 +31,10 @@ _GAME_TYPES: dict[str, list[str]] = {
 
 
 def ensure_model(settings: Settings) -> None:
-    """Pull the configured Ollama model if it is missing.
-
-    No-op unless ``ollama_auto_pull`` is set. The local model list is matched
-    against ``settings.ollama_model``; a missing model triggers a blocking pull.
-    """
-    if not settings.ollama_auto_pull:
+    """Pull the configured Ollama model if missing. No-op for llama.cpp backend."""
+    if settings.llm_backend != "ollama" or not settings.ollama_auto_pull:
         return
+    from ollama import Client
     client = Client(host=settings.ollama_host)
     present = {m.model for m in client.list().models}
     if settings.ollama_model not in present:
@@ -46,13 +42,18 @@ def ensure_model(settings: Settings) -> None:
         client.pull(settings.ollama_model)
 
 
-def _ollama_reachable(settings: Settings) -> bool:
-    """Best-effort liveness probe for the Ollama backend used by /healthz."""
+def _backend_reachable(settings: Settings) -> bool:
+    """Best-effort liveness probe for whichever backend is configured."""
     try:
+        if settings.llm_backend == "llama_cpp":
+            import httpx
+            r = httpx.get(f"{settings.llama_cpp_host.rstrip('/')}/health", timeout=3)
+            return r.status_code == 200
+        from ollama import Client
         Client(host=settings.ollama_host).list()
         return True
-    except Exception:  # noqa: BLE001 - liveness probe never raises to the caller
-        logger.warning("Ollama not reachable at %s", settings.ollama_host)
+    except Exception:  # noqa: BLE001
+        logger.warning("Backend not reachable (%s)", settings.llm_backend)
         return False
 
 
@@ -125,10 +126,12 @@ def build_app(settings: Settings) -> FastAPI:
 
     @app.get("/healthz")
     def healthz() -> dict[str, object]:
+        model = settings.llama_cpp_model or "default" if settings.llm_backend == "llama_cpp" else settings.ollama_model
         return {
             "status": "ok",
-            "model": settings.ollama_model,
-            "ollama_reachable": _ollama_reachable(settings),
+            "backend": settings.llm_backend,
+            "model": model,
+            "backend_reachable": _backend_reachable(settings),
             "next_run": _next_run(scheduler),
         }
 

@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     ollama_seed: int = 42
     ollama_num_predict: int = 768
     ollama_auto_pull: bool = True
+    # ── Backend selection ────────────────────────────────────────────────────
+    # "ollama" (default) or "llama_cpp" (OpenAI-compatible, e.g. llama.cpp server)
+    llm_backend: str = "ollama"
+    llama_cpp_host: str = "http://llama-cpp:8080"
+    llama_cpp_model: str = ""   # model alias on the llama.cpp server; empty = "default"
     game_types: str = "wordle,connections"
     schedule_cron: str = "15 0 * * *"
     schedule_tz: str = "America/New_York"

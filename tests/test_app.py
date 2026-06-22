@@ -23,7 +23,7 @@ def _prepare(monkeypatch):
 
 def test_healthz_reports_model_and_ok(monkeypatch):
     appmod, settings = _prepare(monkeypatch)
-    monkeypatch.setattr(appmod, "_ollama_reachable", lambda s: True)
+    monkeypatch.setattr(appmod, "_backend_reachable", lambda s: True)
 
     client = TestClient(appmod.build_app(settings))
     resp = client.get("/healthz")
@@ -32,7 +32,7 @@ def test_healthz_reports_model_and_ok(monkeypatch):
     body = resp.json()
     assert body["status"] == "ok"
     assert body["model"] == settings.ollama_model
-    assert body["ollama_reachable"] is True
+    assert body["backend_reachable"] is True
 
 
 def test_play_invokes_run_cycle(monkeypatch):
@@ -44,7 +44,7 @@ def test_play_invokes_run_cycle(monkeypatch):
         return []
 
     monkeypatch.setattr(appmod, "run_cycle", _stub_run_cycle)
-    monkeypatch.setattr(appmod, "_ollama_reachable", lambda s: True)
+    monkeypatch.setattr(appmod, "_backend_reachable", lambda s: True)
 
     client = TestClient(appmod.build_app(settings))
     resp = client.post("/play?game=wordle")
@@ -62,7 +62,7 @@ def test_play_both_with_force(monkeypatch):
         return []
 
     monkeypatch.setattr(appmod, "run_cycle", _stub_run_cycle)
-    monkeypatch.setattr(appmod, "_ollama_reachable", lambda s: True)
+    monkeypatch.setattr(appmod, "_backend_reachable", lambda s: True)
 
     client = TestClient(appmod.build_app(settings))
     resp = client.post("/play?game=both&force=true")
@@ -73,7 +73,7 @@ def test_play_both_with_force(monkeypatch):
 
 def test_play_rejects_unknown_game(monkeypatch):
     appmod, settings = _prepare(monkeypatch)
-    monkeypatch.setattr(appmod, "_ollama_reachable", lambda s: True)
+    monkeypatch.setattr(appmod, "_backend_reachable", lambda s: True)
 
     client = TestClient(appmod.build_app(settings))
     resp = client.post("/play?game=sudoku")
@@ -89,7 +89,7 @@ def test_play_forbidden_when_manual_trigger_disabled(monkeypatch):
         raise AssertionError("run_cycle must not run when manual trigger is disabled")
 
     monkeypatch.setattr(appmod, "run_cycle", _no_run)
-    monkeypatch.setattr(appmod, "_ollama_reachable", lambda s: True)
+    monkeypatch.setattr(appmod, "_backend_reachable", lambda s: True)
 
     client = TestClient(appmod.build_app(settings))
     assert client.post("/play?game=wordle").status_code == 403
@@ -105,7 +105,7 @@ def test_play_requires_token_when_configured(monkeypatch):
         return []
 
     monkeypatch.setattr(appmod, "run_cycle", _stub_run_cycle)
-    monkeypatch.setattr(appmod, "_ollama_reachable", lambda s: True)
+    monkeypatch.setattr(appmod, "_backend_reachable", lambda s: True)
 
     client = TestClient(appmod.build_app(settings))
     assert client.post("/play?game=wordle").status_code == 401
@@ -138,7 +138,8 @@ def test_ensure_model_pulls_when_absent(monkeypatch):
         def pull(self, model):
             pulled.append(model)
 
-    monkeypatch.setattr(appmod, "Client", _FakeClient)
+    import ollama
+    monkeypatch.setattr(ollama, "Client", _FakeClient)
     appmod.ensure_model(settings)
 
     assert pulled == [settings.ollama_model]
@@ -166,7 +167,8 @@ def test_ensure_model_noop_when_present(monkeypatch):
         def pull(self, model):
             pulled.append(model)
 
-    monkeypatch.setattr(appmod, "Client", _FakeClient)
+    import ollama
+    monkeypatch.setattr(ollama, "Client", _FakeClient)
     appmod.ensure_model(settings)
 
     assert pulled == []
@@ -176,7 +178,7 @@ def test_module_level_app_exists(monkeypatch):
     appmod, _ = _prepare(monkeypatch)
 
     assert isinstance(appmod.app, appmod.FastAPI)
-    monkeypatch.setattr(appmod, "_ollama_reachable", lambda s: True)
+    monkeypatch.setattr(appmod, "_backend_reachable", lambda s: True)
     client = TestClient(appmod.app)
     assert client.get("/healthz").status_code == 200
 

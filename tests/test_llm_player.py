@@ -5,45 +5,53 @@ import pytest
 from app.config import Settings
 from app.engines.models import WordlePuzzle
 from app.engines.wordle_engine import WordleEngine
-from app.players.llm_player import LLMPlayer, InvalidMoveExhausted
+from app.players.backend import LLMBackend
+from app.players.llm_player import InvalidMoveExhausted
+from app.players.llm_player import LLMPlayer
 
 
-class FakeOllama:
-    def __init__(self, replies):
+class FakeBackend(LLMBackend):
+    """Test double for LLMBackend — returns canned strings from a queue."""
+
+    def __init__(self, replies: list[str]) -> None:
         self._replies = list(replies)
         self.calls = 0
 
-    def chat(self, **kw):
+    @property
+    def model_name(self) -> str:
+        return "fake"
+
+    def complete(self, messages: list[dict]) -> str:
         r = self._replies[self.calls]
         self.calls += 1
-        return type("M", (), {"message": type("Msg", (), {"content": r})})
+        return r
 
 
-def _settings(monkeypatch):
+def _settings(monkeypatch) -> Settings:
     monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/1/x")
-    return Settings()
+    return Settings(_env_file=None)
 
 
 def test_invalid_then_valid_does_not_consume_turn(monkeypatch):
     eng = WordleEngine(WordlePuzzle("2026-06-17", 1824, "token", None), allowed={"crane", "token"})
-    fake = FakeOllama([
-        json.dumps({"reasoning": "try", "guess": "zzzzz"}),   # not in dictionary -> re-prompt, no turn
-        json.dumps({"reasoning": "ok", "guess": "crane"}),    # valid -> consumes turn 1
-        json.dumps({"reasoning": "win", "guess": "token"}),   # valid -> win
+    backend = FakeBackend([
+        json.dumps({"reasoning": "try", "guess": "zzzzz"}),   # not in dict → re-prompt, no turn
+        json.dumps({"reasoning": "ok", "guess": "crane"}),    # valid → turn 1
+        json.dumps({"reasoning": "win", "guess": "token"}),   # valid → win
     ])
-    turns = LLMPlayer(_settings(monkeypatch), client=fake).play_wordle(eng)
+    turns = LLMPlayer(_settings(monkeypatch), backend=backend).play_wordle(eng)
     assert eng.solved
-    assert [t.guess for t in turns] == ["crane", "token"]   # invalid attempt NOT recorded as a turn
+    assert [t.guess for t in turns] == ["crane", "token"]   # invalid not recorded
     assert turns[0].retries == 1                            # one corrective re-prompt before crane
 
 
 def test_backstop_raises(monkeypatch):
     monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/1/x")
-    s = Settings(max_invalid_retries=2)
+    s = Settings(_env_file=None, max_invalid_retries=2)
     eng = WordleEngine(WordlePuzzle("2026-06-17", 1824, "token", None), allowed={"crane"})
-    fake = FakeOllama([json.dumps({"reasoning": "x", "guess": "zzzzz"})] * 5)
+    backend = FakeBackend([json.dumps({"reasoning": "x", "guess": "zzzzz"})] * 5)
     with pytest.raises(InvalidMoveExhausted):
-        LLMPlayer(s, client=fake).play_wordle(eng)
+        LLMPlayer(s, backend=backend).play_wordle(eng)
 
 
 def test_strip_code_fence():
@@ -56,13 +64,10 @@ def test_strip_code_fence():
 
 def test_sanitize_json_strings():
     from app.players.llm_player import _sanitize_json_strings
-    # literal newline inside a string value → escaped
     raw = '{"reasoning": "line1\nline2\nline3", "guess": "crane"}'
     clean = _sanitize_json_strings(raw)
-    import json
     parsed = json.loads(clean)
-    assert parsed["reasoning"] == "line1\nline2\nline3"  # json.loads unescapes back to newline
+    assert parsed["reasoning"] == "line1\nline2\nline3"
     assert parsed["guess"] == "crane"
-    # structural newlines outside strings are preserved
     raw2 = '{\n  "guess": "token"\n}'
     assert json.loads(_sanitize_json_strings(raw2))["guess"] == "token"

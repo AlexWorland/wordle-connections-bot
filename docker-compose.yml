@@ -1,8 +1,19 @@
+# Usage:
+#   Ollama backend (default):
+#     docker compose --profile ollama up -d
+#   llama.cpp backend (OpenAI-compatible, e.g. Intel Arc with Vulkan):
+#     docker compose --profile llama_cpp up -d
+#   External inference (bot only, point LLM_BACKEND + host at an existing server):
+#     docker compose up -d
+
 services:
+  # ── Ollama backend ──────────────────────────────────────────────────────────
   ollama:
+    profiles: [ollama]
     image: ollama/ollama
+    container_name: wordle-ollama
     volumes:
-      - ollama_models:/root/.ollama
+      - ${OLLAMA_HOST_MODELS:-ollama_models}:/root/.ollama
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 10s
@@ -11,23 +22,62 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # ── llama.cpp backend (OpenAI-compatible /v1 API) ──────────────────────────
+  # Recommended for Intel Arc (Vulkan) or any host without Ollama support.
+  # Replace the image tag with :server-intel for SYCL, :server for CPU.
+  llama-cpp:
+    profiles: [llama_cpp]
+    image: ghcr.io/ggml-org/llama.cpp:server-vulkan
+    container_name: wordle-llama-cpp
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128   # Intel Arc / AMD Vulkan GPU
+      - /dev/dri/card0:/dev/dri/card0
+    volumes:
+      - llama_models:/models
+    environment:
+      # Set these to the model file inside the volume and desired alias
+      LLAMA_ARG_MODEL: /models/${LLAMA_CPP_MODEL_FILE:-model.gguf}
+      LLAMA_ARG_ALIAS: ${LLAMA_CPP_MODEL:-default}
+      LLAMA_ARG_CTX_SIZE: ${OLLAMA_NUM_CTX:-4096}
+      LLAMA_ARG_N_PREDICT: ${OLLAMA_NUM_PREDICT:-2048}
+    ports:
+      - "127.0.0.1:8081:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── Bot ──────────────────────────────────────────────────────────────────────
   bot:
     build: .
+    container_name: wordle-bot
     depends_on:
       ollama:
         condition: service_healthy
+        required: false   # skip if ollama profile not active
+      llama-cpp:
+        condition: service_healthy
+        required: false   # skip if llama_cpp profile not active
     env_file: .env
     environment:
-      OLLAMA_HOST: http://ollama:11434
+      # Overridden by profile-specific compose overrides or .env
+      OLLAMA_HOST: http://wordle-ollama:11434
+      LLAMA_CPP_HOST: http://wordle-llama-cpp:8080
+      # Inject corporate/Zscaler CA so httpx can verify NYT's TLS cert
+      SSL_CERT_FILE: /certs/cacert-with-zscaler.pem
+      REQUESTS_CA_BUNDLE: /certs/cacert-with-zscaler.pem
     volumes:
       - bot_data:/data
+      - ./certs/cacert-with-zscaler.pem:/certs/cacert-with-zscaler.pem:ro
     ports:
-      # Bind to loopback only: /play is a state-changing endpoint, so it must not
-      # be reachable from the LAN. Reach it from the host, or front it with an
-      # authenticated reverse proxy. See PLAY_AUTH_TOKEN for shared-secret auth.
+      # Bind to loopback only — /play is a state-changing endpoint.
       - "127.0.0.1:8080:8080"
     restart: unless-stopped
 
 volumes:
   ollama_models:
+  llama_models:
   bot_data:
