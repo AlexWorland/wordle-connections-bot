@@ -29,10 +29,28 @@ STRATEGY TIPS
 - Beware of red herrings — a word that seems to fit one group often belongs to another.
   (e.g. a word meaning "ignite" might actually belong to a "___ READER" group.)
 - Start with whichever group you feel most confident about — but commit decisively.
-- If a ONE_AWAY hint appears in your game state, use it: exactly 3 of those 4 words are
-  correct. Identify the odd one out and swap it.
 - Do not repeat an exact set of 4 words you have already tried.
 - Only choose from the words still remaining in the pool.
+
+MISTAKE CONSERVATION (critical)
+--------------------------------
+You have at most 4 mistakes. Spending multiple mistakes probing the same uncertain group
+almost always leads to a loss. Follow this discipline:
+
+1. NEVER guess the same group concept twice in a row. If a guess is wrong or ONE_AWAY,
+   immediately pivot to a DIFFERENT group you are confident about.
+
+2. USE PROCESS OF ELIMINATION. If you solve 3 groups, the 4th is revealed for free — no
+   guessing needed. When you are unsure which word belongs to a group, solve everything
+   else first and let elimination do the work.
+
+3. ONE_AWAY does NOT mean "try swapping each word one by one." It means exactly 3 of
+   those 4 words are correct. Note which word might be the intruder, then pivot away.
+   Come back to that group only after solving at least one other group — you may discover
+   the intruder through elimination.
+
+4. If you cannot identify any group with high confidence, make your best guess at the
+   most obvious one — then move on regardless of the outcome.
 
 CURRENT GAME STATE
 ------------------
