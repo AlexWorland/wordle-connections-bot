@@ -19,7 +19,7 @@ class LLMBackend(ABC):
     """
 
     @abstractmethod
-    def complete(self, messages: list[dict[str, str]]) -> str: ...
+    def complete(self, messages: list[dict[str, str]], format: str | dict | None = "json") -> str: ...
 
     @property
     @abstractmethod
@@ -34,6 +34,9 @@ class OllamaBackend(LLMBackend):
 
         self._client = Client(host=settings.ollama_host)
         self._model = settings.ollama_model
+        # think accepts True/False or a level string ("low"/"medium"/"high"/"max")
+        raw = settings.ollama_think.strip().lower()
+        self._think: bool | str = False if raw == "false" else (True if raw == "true" else raw)
         self._opts = {
             "temperature": settings.ollama_temperature,
             "seed": settings.ollama_seed,
@@ -45,12 +48,14 @@ class OllamaBackend(LLMBackend):
     def model_name(self) -> str:
         return self._model
 
-    def complete(self, messages: list[dict[str, str]]) -> str:
+    def complete(self, messages: list[dict[str, str]], format: str | dict | None = "json") -> str:
         resp = self._client.chat(
             model=self._model,
             messages=messages,
-            format="json",   # loose JSON mode — format=<schema> returns empty on MLX models
-            think=False,     # top-level param: prevents thinking tokens eating the budget
+            # Pass the JSON schema dict for proper constrained decoding (works correctly
+            # with think=True). Falls back to "json" loose mode or None for free text.
+            format=format,
+            think=self._think,
             options=self._opts,
         )
         return resp.message.content
@@ -72,11 +77,11 @@ class LlamaCppBackend(LLMBackend):
     def model_name(self) -> str:
         return self._model or "llama.cpp"
 
-    def complete(self, messages: list[dict[str, str]]) -> str:
+    def complete(self, messages: list[dict[str, str]], format: str | dict | None = "json") -> str:
         resp = self._client.chat.completions.create(
             model=self._model or "default",
             messages=messages,  # type: ignore[arg-type]  # llama.cpp accepts plain dicts
-            response_format={"type": "json_object"},  # type: ignore[arg-type]
+            response_format={"type": "json_object"} if format else {"type": "text"},  # type: ignore[arg-type]
             temperature=self._temperature,
             max_tokens=self._max_tokens,
         )

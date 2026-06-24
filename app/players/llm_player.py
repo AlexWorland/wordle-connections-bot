@@ -115,12 +115,17 @@ class LLMPlayer:
                     ),
                 }
             ]
-        raw = self._backend.complete(history)
+        raw = self._backend.complete(history)  # format="json" default; schema enforced in prompt
         clean = _sanitize_json_strings(_strip_code_fence(raw))
         history = history + [{"role": "assistant", "content": raw}]
         return schema.model_validate_json(clean), history
 
-    def play_wordle(self, engine: WordleEngine) -> list[TurnRecord]:
+    def _ask_free(self, history: list[dict[str, str]], message: str) -> str:
+        """Send a free-text follow-up using the existing conversation history."""
+        history = history + [{"role": "user", "content": message}]
+        return self._backend.complete(history, format=None)
+
+    def play_wordle(self, engine: WordleEngine) -> tuple[list[TurnRecord], str | None]:
         template = _prompt("wordle")
         turns: list[TurnRecord] = []
         history: list[dict[str, str]] = []
@@ -154,7 +159,15 @@ class LLMPlayer:
                     retries,
                 )
             )
-        return turns
+        postmortem: str | None = None
+        if engine.status is not None and engine.status.value == "loss":
+            postmortem = self._ask_free(
+                history,
+                f"You lost. The answer was {engine.solution.upper()}. "
+                f"Looking back at your guesses and the feedback you received, "
+                f"explain why you did not arrive at this word.",
+            )
+        return turns, postmortem
 
     def play_connections(self, engine: ConnectionsEngine) -> list[TurnRecord]:
         template = _prompt("connections")

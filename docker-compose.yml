@@ -64,7 +64,7 @@ services:
     env_file: .env
     environment:
       # Overridden by profile-specific compose overrides or .env
-      OLLAMA_HOST: http://wordle-ollama:11434
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://wordle-ollama:11434}
       LLAMA_CPP_HOST: http://wordle-llama-cpp:8080
       # Inject corporate/Zscaler CA so httpx can verify NYT's TLS cert
       SSL_CERT_FILE: /certs/cacert-with-zscaler.pem
@@ -74,7 +74,7 @@ services:
       - ./certs/cacert-with-zscaler.pem:/certs/cacert-with-zscaler.pem:ro
     ports:
       # Bind to loopback only — /play is a state-changing endpoint.
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${BOT_PORT:-8080}:8080"
     restart: unless-stopped
 
 volumes:

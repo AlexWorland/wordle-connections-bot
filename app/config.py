@@ -11,11 +11,18 @@ class Settings(BaseSettings):
     discord_webhook_url: str
     ollama_host: str = "http://ollama:11434"
     ollama_model: str = "gemma4:12b"
-    ollama_num_ctx: int = 8192
+    ollama_num_ctx: int = 32768
     ollama_temperature: float = 0.0
     ollama_seed: int = 42
     ollama_num_predict: int = 768
     ollama_auto_pull: bool = True
+    # Enables the model's internal reasoning trace via the Ollama think= parameter.
+    # NOTE: think=true is mutually exclusive with format="json" at the llama.cpp level
+    # (GBNF grammar prevents <think> tags). For gemma4, think + format also triggers
+    # CUDA crashes (Ollama bugs #15260, #15416). Keep "false" until Ollama fixes this.
+    # The "reasoning" field in the JSON schema serves as the embedded chain-of-thought.
+    # Accepts "true"/"false" or level strings ("low"/"medium"/"high"/"max").
+    ollama_think: str = "false"
     # ── Backend selection ────────────────────────────────────────────────────
     # "ollama" (default) or "llama_cpp" (OpenAI-compatible, e.g. llama.cpp server)
     llm_backend: str = "ollama"

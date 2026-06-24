@@ -96,8 +96,8 @@ class ConnectionsEngine:
                 if result is SubmitResult.ONE_AWAY:
                     lines.append(f"  🔴 ONE_AWAY: {', '.join(attempt_words)}")
                     lines.append(
-                        f"       ↳ Exactly 3 of these 4 belong to the same group. "
-                        f"One word is wrong — swap it and try again."
+                        "       ↳ Exactly 3 of these 4 belong to the same group. "
+                        "One word is wrong — swap it and try again."
                     )
                 else:
                     lines.append(f"  ❌ INCORRECT: {', '.join(attempt_words)}")

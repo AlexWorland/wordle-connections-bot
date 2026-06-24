@@ -58,32 +58,33 @@ def _backend_reachable(settings: Settings) -> bool:
 
 
 def run_cycle(
-    settings: Settings, game_types: list[str], force: bool = False
-) -> list[GameRecord]:
-    """Play one or more games for today and return the persisted records.
+    settings: Settings, game_types: list[str], force: bool = False, dry_run: bool = False
+) -> list[tuple[GameRecord, dict]]:
+    """Play one or more games for today and return (record, embed) pairs.
 
     Opens the SQLite DB, builds a single LLMPlayer, computes today's date in
     ``schedule_tz``, then dispatches each requested game type to its runner.
     Runners return ``None`` when skipped (idempotency / not published); those
-    are filtered out of the result.
+    are filtered out of the result. When ``dry_run`` is True the games are
+    played but nothing is persisted or posted to Discord.
     """
     conn = init_db(settings.db_path)
     try:
         repo = GameRepository(conn)
         player = LLMPlayer(settings)
         date = today_str(settings.schedule_tz)
-        records: list[GameRecord] = []
+        results: list[tuple[GameRecord, dict, str | None]] = []
         for game_type in game_types:
             if game_type == GameType.WORDLE.value:
-                record = run_wordle(date, settings, player=player, repo=repo, force=force)
+                result = run_wordle(date, settings, player=player, repo=repo, force=force, dry_run=dry_run)
             elif game_type == GameType.CONNECTIONS.value:
-                record = run_connections(date, settings, player=player, repo=repo, force=force)
+                result = run_connections(date, settings, player=player, repo=repo, force=force, dry_run=dry_run)
             else:
                 logger.warning("Unknown game type %r; skipping", game_type)
                 continue
-            if record is not None:
-                records.append(record)
-        return records
+            if result is not None:
+                results.append(result)
+        return results
     finally:
         conn.close()
 
@@ -151,7 +152,7 @@ def build_app(settings: Settings) -> FastAPI:
         ):
             raise HTTPException(status_code=401, detail="Invalid or missing X-Play-Token")
         game_types = _GAME_TYPES[game]
-        records = run_cycle(settings, game_types, force=force)
+        results = run_cycle(settings, game_types, force=force)
         return {
             "played": game_types,
             "force": force,
@@ -161,7 +162,34 @@ def build_app(settings: Settings) -> FastAPI:
                     "puzzle_date": r.puzzle_date,
                     "outcome": r.outcome.value,
                 }
-                for r in records
+                for r, _, _pm in results
+            ],
+        }
+
+    @app.get("/preview")
+    def preview(
+        game: Literal["wordle", "connections", "both"] = "both",
+    ) -> dict[str, object]:
+        """Play today's game(s) and return the Discord embed payload without posting."""
+        game_types = _GAME_TYPES[game]
+        results = run_cycle(settings, game_types, dry_run=True)
+        return {
+            "game_types": game_types,
+            "results": [
+                {
+                    "game_type": r.game_type.value,
+                    "puzzle_date": r.puzzle_date,
+                    "outcome": r.outcome.value,
+                    "num_guesses": r.num_guesses,
+                    "num_mistakes": r.num_mistakes,
+                    "turns": [
+                        {"guess": t.guess, "reasoning": t.reasoning}
+                        for t in r.turns
+                    ],
+                    "postmortem": postmortem,
+                    "embed": embed,
+                }
+                for r, embed, postmortem in results
             ],
         }
 

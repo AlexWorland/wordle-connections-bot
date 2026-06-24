@@ -7,14 +7,37 @@ After each guess you receive per-letter feedback using colored squares:
 
   🟩  GREEN  — the letter is in the word AND in the correct position.
   🟨  YELLOW — the letter IS in the word, but in a DIFFERENT position.
-  ⬜  GRAY   — the letter does NOT appear in the word at all.
-               (When a letter appears more times in your guess than in the
-               answer, the extras are marked gray — duplicates are handled
-               precisely.)
+  ⬜  GRAY   — the letter does NOT appear in the word at all, OR your guess
+               used that letter more times than the answer contains it
+               (excess copies beyond the answer's count are marked gray).
 
 Example: if the answer is CRANE and you guess TRACE:
   T ⬜  R 🟨  A 🟩  C 🟨  E 🟩
   → T not in word; R in word, wrong spot; A correct; C in word, wrong spot; E correct.
+
+DUPLICATE LETTER RULE (critical — read carefully)
+--------------------------------------------------
+Feedback is assigned by letter COUNT, in two passes:
+  1. Greens are resolved first. Each green consumes one copy of that letter.
+  2. Yellows are assigned for any remaining non-green positions where the answer
+     still has unused copies of that letter. Each yellow also consumes one copy.
+  3. Any further copies of that letter in your guess receive gray — even though
+     the letter IS in the word.
+
+What this means for your reasoning:
+  • The total number of 🟩 + 🟨 marks for a letter = the MINIMUM count of that
+    letter in the answer.
+  • If any copy of that letter is gray while another copy is 🟩/🟨, then the
+    answer contains EXACTLY as many of that letter as were marked 🟩/🟨 — no more.
+
+Examples:
+  Answer QUEER (2 × E), guess MERGE:  M ⬜  E 🟨  R 🟨  G ⬜  E 🟨
+    → both Es are yellow: the answer has at least 2 Es, neither in position 2 or 5.
+
+  Answer HELLO (1 × E), guess MERGE:  M ⬜  E 🟩  R ⬜  G ⬜  E ⬜
+    → first E (pos 2) is green: it matches. That consumes HELLO's only E.
+    → second E (pos 5) is gray: the answer has EXACTLY 1 E — no more.
+    → do NOT treat this gray E as "E is not in the word"; E IS in the word, once.
 
 HARD MODE RULES (MANDATORY — every guess must obey these)
 ----------------------------------------------------------
@@ -26,7 +49,7 @@ or omits a known yellow letter is INVALID and will be rejected.
 
 STRATEGY TIPS
 -------------
-- Use your first guess to test several different common letters (e.g. CRANE, STARE, AUDIO).
+- Use your first guess to test several different common letters.
 - After each guess, check the "What we know" summary and build your next word around those constraints.
 - Gray letters are eliminated — do not reuse them.
 - Narrow the answer systematically using the confirmed and in-word letters.

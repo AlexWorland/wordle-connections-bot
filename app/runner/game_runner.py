@@ -47,6 +47,33 @@ def _skip_for_idempotency(
     return False
 
 
+def _build_wordle_embed(record: GameRecord, engine: WordleEngine, puzzle) -> dict:
+    marks_rows = [
+        "".join(WORDLE_EMOJI[m] for m in marks) for _, marks in engine.guess_rows
+    ]
+    return build_wordle_embed(
+        number=puzzle.number,
+        marks_rows=marks_rows,
+        solution=puzzle.solution,
+        model=record.model,
+        won=record.outcome is Outcome.WIN,
+    )
+
+
+def _build_connections_embed(record: GameRecord, engine: ConnectionsEngine, puzzle) -> dict:
+    groups_text = "\n".join(
+        f"{g.title}: {', '.join(g.words)}" for g in puzzle.groups
+    )
+    return build_connections_embed(
+        number=puzzle.number,
+        grid=engine.render_share_grid(),
+        groups_text=groups_text,
+        model=record.model,
+        mistakes=record.num_mistakes,
+        won=record.outcome is Outcome.WIN,
+    )
+
+
 def run_wordle(
     date: str,
     settings: Settings,
@@ -55,9 +82,10 @@ def run_wordle(
     repo: GameRepository,
     http: httpx.Client | None = None,
     force: bool = False,
-) -> GameRecord | None:
+    dry_run: bool = False,
+) -> tuple[GameRecord, dict] | None:
     model = settings.ollama_model
-    if _skip_for_idempotency(repo, GameType.WORDLE.value, date, model, force):
+    if not dry_run and _skip_for_idempotency(repo, GameType.WORDLE.value, date, model, force):
         return None
 
     try:
@@ -73,7 +101,7 @@ def run_wordle(
     answer_json = json.dumps({"solution": puzzle.solution})
 
     try:
-        turns = player.play_wordle(engine)
+        turns, postmortem = player.play_wordle(engine)
     except InvalidMoveExhausted:
         logger.error("Wordle for %s errored: invalid-move retries exhausted", date)
         record = GameRecord(
@@ -90,10 +118,12 @@ def run_wordle(
             answer_json=answer_json,
             turns=[],
         )
-        repo.save(record)
-        if settings.post_on_fetch_failure:
-            _post_wordle(record, engine, puzzle, settings, http)
-        return record
+        embed = _build_wordle_embed(record, engine, puzzle)
+        if not dry_run:
+            repo.save(record)
+            if settings.post_on_fetch_failure:
+                post_embed(embed, settings, client=http)
+        return record, embed, None
 
     won = engine.status is Outcome.WIN
     record = GameRecord(
@@ -110,29 +140,11 @@ def run_wordle(
         answer_json=answer_json,
         turns=turns,
     )
-    repo.save(record)
-    _post_wordle(record, engine, puzzle, settings, http)
-    return record
-
-
-def _post_wordle(
-    record: GameRecord,
-    engine: WordleEngine,
-    puzzle,
-    settings: Settings,
-    http: httpx.Client | None,
-) -> None:
-    marks_rows = [
-        "".join(WORDLE_EMOJI[m] for m in marks) for _, marks in engine.guess_rows
-    ]
-    embed = build_wordle_embed(
-        number=puzzle.number,
-        marks_rows=marks_rows,
-        solution=puzzle.solution,
-        model=record.model,
-        won=record.outcome is Outcome.WIN,
-    )
-    post_embed(embed, settings, client=http)
+    embed = _build_wordle_embed(record, engine, puzzle)
+    if not dry_run:
+        repo.save(record)
+        post_embed(embed, settings, client=http)
+    return record, embed, postmortem
 
 
 def run_connections(
@@ -144,9 +156,10 @@ def run_connections(
     http: httpx.Client | None = None,
     rng: random.Random | None = None,
     force: bool = False,
-) -> GameRecord | None:
+    dry_run: bool = False,
+) -> tuple[GameRecord, dict] | None:
     model = settings.ollama_model
-    if _skip_for_idempotency(repo, GameType.CONNECTIONS.value, date, model, force):
+    if not dry_run and _skip_for_idempotency(repo, GameType.CONNECTIONS.value, date, model, force):
         return None
 
     try:
@@ -179,10 +192,12 @@ def run_connections(
             answer_json=answer_json,
             turns=[],
         )
-        repo.save(record)
-        if settings.post_on_fetch_failure:
-            _post_connections(record, engine, puzzle, settings, http)
-        return record
+        embed = _build_connections_embed(record, engine, puzzle)
+        if not dry_run:
+            repo.save(record)
+            if settings.post_on_fetch_failure:
+                post_embed(embed, settings, client=http)
+        return record, embed, None
 
     record = GameRecord(
         game_type=GameType.CONNECTIONS,
@@ -198,27 +213,8 @@ def run_connections(
         answer_json=answer_json,
         turns=turns,
     )
-    repo.save(record)
-    _post_connections(record, engine, puzzle, settings, http)
-    return record
-
-
-def _post_connections(
-    record: GameRecord,
-    engine: ConnectionsEngine,
-    puzzle,
-    settings: Settings,
-    http: httpx.Client | None,
-) -> None:
-    groups_text = "\n".join(
-        f"{g.title}: {', '.join(g.words)}" for g in puzzle.groups
-    )
-    embed = build_connections_embed(
-        number=puzzle.number,
-        grid=engine.render_share_grid(),
-        groups_text=groups_text,
-        model=record.model,
-        mistakes=record.num_mistakes,
-        won=record.outcome is Outcome.WIN,
-    )
-    post_embed(embed, settings, client=http)
+    embed = _build_connections_embed(record, engine, puzzle)
+    if not dry_run:
+        repo.save(record)
+        post_embed(embed, settings, client=http)
+    return record, embed, None
