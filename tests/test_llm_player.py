@@ -21,7 +21,12 @@ class FakeBackend(LLMBackend):
     def model_name(self) -> str:
         return "fake"
 
-    def complete(self, messages: list[dict]) -> str:
+    def complete(
+        self,
+        messages: list[dict],
+        format: str | dict | None = "json",
+        temperature: float | None = None,
+    ) -> str:
         r = self._replies[self.calls]
         self.calls += 1
         return r
@@ -39,10 +44,12 @@ def test_invalid_then_valid_does_not_consume_turn(monkeypatch):
         json.dumps({"reasoning": "ok", "guess": "crane"}),    # valid → turn 1
         json.dumps({"reasoning": "win", "guess": "token"}),   # valid → win
     ])
-    turns = LLMPlayer(_settings(monkeypatch), backend=backend).play_wordle(eng)
+    turns, _postmortem = LLMPlayer(_settings(monkeypatch), backend=backend).play_wordle(eng)
     assert eng.solved
     assert [t.guess for t in turns] == ["crane", "token"]   # invalid not recorded
-    assert turns[0].retries == 1                            # one corrective re-prompt before crane
+    # retries now tracks schema-parse retries only; a non-word is a Phase-2 move
+    # correction, so schema_retries stays 0.
+    assert turns[0].retries == 0
 
 
 def test_backstop_raises(monkeypatch):

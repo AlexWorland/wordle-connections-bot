@@ -85,7 +85,7 @@ def run_wordle(
     http: httpx.Client | None = None,
     force: bool = False,
     dry_run: bool = False,
-) -> tuple[GameRecord, dict] | None:
+) -> tuple[GameRecord, dict, str | None] | None:
     model = settings.ollama_model
     if not dry_run and _skip_for_idempotency(repo, GameType.WORDLE.value, date, model, force):
         return None
@@ -159,7 +159,7 @@ def run_connections(
     rng: random.Random | None = None,
     force: bool = False,
     dry_run: bool = False,
-) -> tuple[GameRecord, dict] | None:
+) -> tuple[GameRecord, dict, str | None] | None:
     model = settings.ollama_model
     if not dry_run and _skip_for_idempotency(repo, GameType.CONNECTIONS.value, date, model, force):
         return None

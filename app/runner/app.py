@@ -59,7 +59,7 @@ def _backend_reachable(settings: Settings) -> bool:
 
 def run_cycle(
     settings: Settings, game_types: list[str], force: bool = False, dry_run: bool = False
-) -> list[tuple[GameRecord, dict]]:
+) -> list[tuple[GameRecord, dict, str | None]]:
     """Play one or more games for today and return (record, embed) pairs.
 
     Opens the SQLite DB, builds a single LLMPlayer, computes today's date in

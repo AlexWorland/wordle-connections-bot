@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma4:12b"
     ollama_num_ctx: int = 32768
     ollama_temperature: float = 0.0
+    # Temperature used only when re-asking after a structural rejection (repeat /
+    # not-in-pool). At temperature 0 the model deterministically reproduces the same
+    # invalid selection; a non-zero retry temperature lets it diverge and recover.
+    ollama_retry_temperature: float = 0.5
     ollama_seed: int = 42
     ollama_num_predict: int = 768
     ollama_auto_pull: bool = True

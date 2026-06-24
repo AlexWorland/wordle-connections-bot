@@ -13,6 +13,7 @@ class ConnectionsEngine:
         self._rng = rng or random.Random()
         self._word_to_group = {w: g for g in puzzle.groups for w in g.words}
         self.mistakes = 0
+        self._forfeited = False
         self.solved_groups: list[ConnectionsGroup] = []
         self._past: set[frozenset[str]] = set()
         self.guess_rows: list[list[str]] = []
@@ -29,9 +30,15 @@ class ConnectionsEngine:
     def status(self) -> Outcome | None:
         if len(self.solved_groups) == 4:
             return Outcome.WIN
-        if self.mistakes >= MAX_MISTAKES:
+        if self.mistakes >= MAX_MISTAKES or self._forfeited:
             return Outcome.LOSS
         return None
+
+    def forfeit(self) -> None:
+        """Mark the game lost when the player is cornered (can only repeat prior
+        selections after retries). Counts as a loss, not an error — real moves
+        were made and the player simply ran out of viable distinct selections."""
+        self._forfeited = True
 
     def validate_selection(self, words: list[str]) -> MoveProblem | None:
         uniq = set(words)
@@ -67,15 +74,20 @@ class ConnectionsEngine:
         return [g for g in self.puzzle.groups if g.title not in solved]
 
     def render_state(self) -> str:
-        turn = len(self.guess_rows) + 1
         mistakes_left = MAX_MISTAKES - self.mistakes
         header = (
-            f"Turn {turn} — "
-            f"{len(self.solved_groups)}/4 groups solved, "
-            f"{self.mistakes} mistake{'s' if self.mistakes != 1 else ''} used, "
-            f"{mistakes_left} mistake{'s' if mistakes_left != 1 else ''} remaining"
+            f"{len(self.solved_groups)}/4 groups solved. "
+            f"You have made {self.mistakes} wrong answer{'s' if self.mistakes != 1 else ''} "
+            f"out of {MAX_MISTAKES} allowed — "
+            f"{mistakes_left} wrong answer{'s' if mistakes_left != 1 else ''} remaining before you lose."
         )
         lines = [header, ""]
+        if mistakes_left == 1:
+            lines.append(
+                "⚠️  ONLY 1 WRONG ANSWER LEFT. Submit a group ONLY if you are highly "
+                "confident. Solving any single group reveals more by elimination."
+            )
+            lines.append("")
 
         # Remaining words
         words = sorted(self.remaining_words)
@@ -96,8 +108,9 @@ class ConnectionsEngine:
                 if result is SubmitResult.ONE_AWAY:
                     lines.append(f"  🔴 ONE_AWAY: {', '.join(attempt_words)}")
                     lines.append(
-                        "       ↳ Exactly 3 of these 4 belong to the same group. "
-                        "One word is wrong — swap it and try again."
+                        "       ↳ Exactly 3 of these 4 belong to the same group, but one "
+                        "is wrong. Do NOT immediately re-guess a near-variant — pivot to a "
+                        "group you are MORE sure of first; elimination often reveals the intruder."
                     )
                 else:
                     lines.append(f"  ❌ INCORRECT: {', '.join(attempt_words)}")

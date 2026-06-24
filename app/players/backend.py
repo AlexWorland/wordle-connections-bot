@@ -19,7 +19,12 @@ class LLMBackend(ABC):
     """
 
     @abstractmethod
-    def complete(self, messages: list[dict[str, str]], format: str | dict | None = "json") -> str: ...
+    def complete(
+        self,
+        messages: list[dict[str, str]],
+        format: str | dict | None = "json",
+        temperature: float | None = None,
+    ) -> str: ...
 
     @property
     @abstractmethod
@@ -48,17 +53,23 @@ class OllamaBackend(LLMBackend):
     def model_name(self) -> str:
         return self._model
 
-    def complete(self, messages: list[dict[str, str]], format: str | dict | None = "json") -> str:
+    def complete(
+        self,
+        messages: list[dict[str, str]],
+        format: str | dict | None = "json",
+        temperature: float | None = None,
+    ) -> str:
+        opts = self._opts if temperature is None else {**self._opts, "temperature": temperature}
         resp = self._client.chat(
             model=self._model,
             messages=messages,
             # Pass the JSON schema dict for proper constrained decoding (works correctly
             # with think=True). Falls back to "json" loose mode or None for free text.
-            format=format,
-            think=self._think,
-            options=self._opts,
+            format=format,  # type: ignore[arg-type]  # ollama stubs over-narrow this
+            think=self._think,  # type: ignore[arg-type]  # accepts level strings too
+            options=opts,
         )
-        return resp.message.content
+        return resp.message.content or ""
 
 
 class LlamaCppBackend(LLMBackend):
@@ -77,12 +88,17 @@ class LlamaCppBackend(LLMBackend):
     def model_name(self) -> str:
         return self._model or "llama.cpp"
 
-    def complete(self, messages: list[dict[str, str]], format: str | dict | None = "json") -> str:
-        resp = self._client.chat.completions.create(
+    def complete(
+        self,
+        messages: list[dict[str, str]],
+        format: str | dict | None = "json",
+        temperature: float | None = None,
+    ) -> str:
+        resp = self._client.chat.completions.create(  # type: ignore[call-overload]
             model=self._model or "default",
-            messages=messages,  # type: ignore[arg-type]  # llama.cpp accepts plain dicts
-            response_format={"type": "json_object"} if format else {"type": "text"},  # type: ignore[arg-type]
-            temperature=self._temperature,
+            messages=messages,  # llama.cpp accepts plain dicts
+            response_format={"type": "json_object"} if format else {"type": "text"},
+            temperature=self._temperature if temperature is None else temperature,
             max_tokens=self._max_tokens,
         )
         return resp.choices[0].message.content or ""

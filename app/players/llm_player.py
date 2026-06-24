@@ -1,6 +1,7 @@
 import json
 import re
 from importlib.resources import files
+from typing import TypeVar
 
 from pydantic import BaseModel
 from pydantic import ValidationError
@@ -12,6 +13,8 @@ from app.engines.models import TurnRecord
 from app.engines.wordle_engine import WordleEngine
 from app.players.backend import LLMBackend
 from app.players.backend import create_backend
+
+_TurnT = TypeVar("_TurnT", bound=BaseModel)
 
 
 class WordleTurn(BaseModel):
@@ -106,11 +109,12 @@ class LLMPlayer:
     def _ask(
         self,
         template: str,
-        schema: type[BaseModel],
+        schema: type[_TurnT],
         state: str,
         correction: str | None,
         history: list[dict[str, str]],
-    ) -> tuple[BaseModel, list[dict[str, str]]]:
+        temperature: float | None = None,
+    ) -> tuple[_TurnT, list[dict[str, str]]]:
         schema_hint = json.dumps(schema.model_json_schema())
         if not history:
             # First turn: full rules + initial state.
@@ -118,11 +122,10 @@ class LLMPlayer:
             history = [{"role": "user", "content": content}]
         elif correction:
             # Invalid move: prefix with [VALIDATOR] so the model distinguishes automated
-            # rejection from human feedback, preventing reasoning like "the user's
-            # previous selection had a typo". Must stay role:user — mid-conversation
+            # rejection from human feedback. Must stay role:user — mid-conversation
             # system messages are silently dropped by Ollama. Do NOT re-include the
-            # schema hint here: the model will echo the schema structure instead of an
-            # instance, causing a retry loop.
+            # schema hint — it causes the model to echo the schema structure instead of
+            # a flat instance.
             history = history + [{"role": "user", "content": f"[VALIDATOR] {correction}\n\nReply ONLY with JSON matching the original schema."}]
         else:
             # New turn after a valid guess: show updated state; rules already in context.
@@ -136,7 +139,7 @@ class LLMPlayer:
                     ),
                 }
             ]
-        raw = self._backend.complete(history)  # format="json" default; schema enforced in prompt
+        raw = self._backend.complete(history, temperature=temperature)  # format="json" default
         clean = _unwrap_schema_echo(_sanitize_json_strings(_strip_code_fence(raw)))
         history = history + [{"role": "assistant", "content": raw}]
         return schema.model_validate_json(clean), history
@@ -166,20 +169,24 @@ class LLMPlayer:
                     correction = f"Invalid JSON for the schema: {e}. Reply ONLY with JSON."
                     schema_retries += 1
 
-            # Phase 2 — one move correction allowed (non-word, hard-mode violation).
-            # The game state shows all constraints; one chance to fix, then error.
+            # Phase 2 — up to 3 move corrections (non-word, hard-mode violation).
             assert isinstance(turn, WordleTurn)
-            problem = engine.validate_guess(turn.guess)
-            if problem is not None:
+            selection_retries = 0
+            while True:
+                problem = engine.validate_guess(turn.guess)
+                if problem is None:
+                    break
+                if selection_retries >= 3:
+                    raise InvalidMoveExhausted("wordle")
                 correction = f"[VALIDATOR] {problem.feedback}"
                 try:
                     turn, history = self._ask(
-                        template, WordleTurn, engine.render_state(), correction, history
+                        template, WordleTurn, engine.render_state(), correction, history,
+                        temperature=self.s.ollama_retry_temperature,
                     )
                 except (ValidationError, json.JSONDecodeError):
                     raise InvalidMoveExhausted("wordle")
-                if engine.validate_guess(turn.guess) is not None:
-                    raise InvalidMoveExhausted("wordle")
+                selection_retries += 1
 
             marks = engine.apply_guess(turn.guess)
             turns.append(
@@ -222,21 +229,43 @@ class LLMPlayer:
                     correction = f"Invalid JSON for the schema: {e}. Reply ONLY with JSON."
                     schema_retries += 1
 
-            # Phase 2 — one move correction allowed.
-            # The game state lists all available words. If the model selects words not
-            # in the pool it gets one correction; a second failure ends the game.
+            # Phase 2 — up to 3 move corrections (structural failures only).
+            # For "repeat" failures, name the exact words to avoid and list remaining
+            # words so the model can pick a genuinely different group. If the model
+            # remains cornered (can only repeat / hallucinate), forfeit → LOSS, since
+            # real moves were already made.
             assert isinstance(turn, ConnectionsTurn)
-            problem = engine.validate_selection(turn.group)
-            if problem is not None:
-                correction = f"[VALIDATOR] {problem.feedback}"
+            selection_retries = 0
+            cornered = False
+            while engine.validate_selection(turn.group) is not None:
+                if selection_retries >= 3:
+                    cornered = True
+                    break
+                problem = engine.validate_selection(turn.group)
+                assert problem is not None
+                if problem.reason == "repeat":
+                    remaining = engine.remaining_words
+                    correction = (
+                        f"[VALIDATOR] You already submitted exactly those 4 words. "
+                        f"DO NOT repeat them. The remaining words are: "
+                        f"{', '.join(sorted(remaining))}. "
+                        f"Choose a completely different group of 4."
+                    )
+                else:
+                    correction = f"[VALIDATOR] {problem.feedback}"
                 try:
                     turn, history = self._ask(
-                        template, ConnectionsTurn, engine.render_state(), correction, history
+                        template, ConnectionsTurn, engine.render_state(), correction, history,
+                        temperature=self.s.ollama_retry_temperature,
                     )
                 except (ValidationError, json.JSONDecodeError):
-                    raise InvalidMoveExhausted("connections")
-                if engine.validate_selection(turn.group) is not None:
-                    raise InvalidMoveExhausted("connections")
+                    cornered = True
+                    break
+                selection_retries += 1
+
+            if cornered:
+                engine.forfeit()
+                break
 
             result = engine.submit(turn.group)
             turns.append(

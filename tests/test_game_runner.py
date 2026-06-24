@@ -23,7 +23,7 @@ class _WinningWordlePlayer:
     def play_wordle(self, engine: WordleEngine):
         engine.apply_guess("crane")
         engine.apply_guess("token")
-        return []
+        return [], None
 
     def play_connections(self, engine: ConnectionsEngine):
         return []
@@ -49,6 +49,11 @@ class _WinningConnectionsPlayer:
         return []
 
 
+def _rec(result):
+    """run_wordle/run_connections now return (record, embed, postmortem) or None."""
+    return result[0] if result is not None else None
+
+
 def _mock_wordle():
     body = json.load(open("tests/fixtures/wordle_2026-06-17.json"))
     respx.get("https://www.nytimes.com/svc/wordle/v2/2026-06-17.json").mock(
@@ -72,7 +77,7 @@ def test_run_wordle_saves_win_and_posts(monkeypatch, tmp_path):
     settings = _settings(monkeypatch)
     repo = GameRepository(init_db(str(tmp_path / "g.db")))
 
-    rec = run_wordle("2026-06-17", settings, player=_WinningWordlePlayer(), repo=repo)
+    rec = _rec(run_wordle("2026-06-17", settings, player=_WinningWordlePlayer(), repo=repo))
 
     assert rec is not None
     assert rec.game_type is GameType.WORDLE
@@ -91,11 +96,11 @@ def test_run_wordle_idempotent_skips(monkeypatch, tmp_path):
     settings = _settings(monkeypatch)
     repo = GameRepository(init_db(str(tmp_path / "g.db")))
 
-    first = run_wordle("2026-06-17", settings, player=_WinningWordlePlayer(), repo=repo)
+    first = _rec(run_wordle("2026-06-17", settings, player=_WinningWordlePlayer(), repo=repo))
     assert first is not None
     assert discord.call_count == 1
 
-    again = run_wordle("2026-06-17", settings, player=_WinningWordlePlayer(), repo=repo)
+    again = _rec(run_wordle("2026-06-17", settings, player=_WinningWordlePlayer(), repo=repo))
     assert again is None
     assert discord.call_count == 1  # nothing posted on the no-op re-run
 
@@ -110,9 +115,9 @@ def test_run_wordle_force_replays(monkeypatch, tmp_path):
     repo = GameRepository(init_db(str(tmp_path / "g.db")))
 
     run_wordle("2026-06-17", settings, player=_WinningWordlePlayer(), repo=repo)
-    replayed = run_wordle(
+    replayed = _rec(run_wordle(
         "2026-06-17", settings, player=_WinningWordlePlayer(), repo=repo, force=True
-    )
+    ))
 
     assert replayed is not None
     assert replayed.outcome is Outcome.WIN
@@ -129,7 +134,7 @@ def test_run_wordle_not_published_returns_none(monkeypatch, tmp_path):
     settings = _settings(monkeypatch)
     repo = GameRepository(init_db(str(tmp_path / "g.db")))
 
-    rec = run_wordle("2099-01-01", settings, player=_WinningWordlePlayer(), repo=repo)
+    rec = _rec(run_wordle("2099-01-01", settings, player=_WinningWordlePlayer(), repo=repo))
 
     assert rec is None
     assert discord.call_count == 0
@@ -144,7 +149,7 @@ def test_run_wordle_exhausted_records_errored(monkeypatch, tmp_path):
     settings = _settings(monkeypatch)
     repo = GameRepository(init_db(str(tmp_path / "g.db")))
 
-    rec = run_wordle("2026-06-17", settings, player=_ExhaustingPlayer(), repo=repo)
+    rec = _rec(run_wordle("2026-06-17", settings, player=_ExhaustingPlayer(), repo=repo))
 
     assert rec is not None
     assert rec.outcome is Outcome.ERRORED
@@ -161,9 +166,9 @@ def test_run_connections_saves_win_and_posts(monkeypatch, tmp_path):
     settings = _settings(monkeypatch)
     repo = GameRepository(init_db(str(tmp_path / "g.db")))
 
-    rec = run_connections(
+    rec = _rec(run_connections(
         "2026-06-17", settings, player=_WinningConnectionsPlayer(), repo=repo
-    )
+    ))
 
     assert rec is not None
     assert rec.game_type is GameType.CONNECTIONS
