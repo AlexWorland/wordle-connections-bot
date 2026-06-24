@@ -43,6 +43,22 @@ def _prompt(name: str) -> str:
     return (files("app.players.prompts") / f"{name}.txt").read_text(encoding="utf-8")
 
 
+def _unwrap_schema_echo(text: str) -> str:
+    """Unwrap {"properties": {...}, "required": [...]} schema-echo responses.
+
+    Some models (e.g. gemma4 with format=json) echo the JSON Schema structure
+    instead of producing a flat instance. If the parsed JSON has a "properties"
+    key whose value is a dict, promote its contents to the top level.
+    """
+    try:
+        obj = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return text
+    if isinstance(obj, dict) and "properties" in obj and isinstance(obj["properties"], dict):
+        return json.dumps(obj["properties"])
+    return text
+
+
 def _strip_code_fence(text: str) -> str:
     """Strip ```json ... ``` or ``` ... ``` wrappers that some models add around JSON."""
     text = text.strip()
@@ -101,8 +117,13 @@ class LLMPlayer:
             content = template.replace("{{STATE}}", state).replace("{{SCHEMA}}", schema_hint)
             history = [{"role": "user", "content": content}]
         elif correction:
-            # Invalid move: append rejection so the model self-corrects.
-            history = history + [{"role": "user", "content": correction}]
+            # Invalid move: prefix with [VALIDATOR] so the model distinguishes automated
+            # rejection from human feedback, preventing reasoning like "the user's
+            # previous selection had a typo". Must stay role:user — mid-conversation
+            # system messages are silently dropped by Ollama. Do NOT re-include the
+            # schema hint here: the model will echo the schema structure instead of an
+            # instance, causing a retry loop.
+            history = history + [{"role": "user", "content": f"[VALIDATOR] {correction}\n\nReply ONLY with JSON matching the original schema."}]
         else:
             # New turn after a valid guess: show updated state; rules already in context.
             history = history + [
@@ -116,7 +137,7 @@ class LLMPlayer:
                 }
             ]
         raw = self._backend.complete(history)  # format="json" default; schema enforced in prompt
-        clean = _sanitize_json_strings(_strip_code_fence(raw))
+        clean = _unwrap_schema_echo(_sanitize_json_strings(_strip_code_fence(raw)))
         history = history + [{"role": "assistant", "content": raw}]
         return schema.model_validate_json(clean), history
 

@@ -64,6 +64,7 @@ def _build_connections_embed(record: GameRecord, engine: ConnectionsEngine, puzz
     groups_text = "\n".join(
         f"{g.title}: {', '.join(g.words)}" for g in puzzle.groups
     )
+    all_words = [w for g in puzzle.groups for w in g.words]
     return build_connections_embed(
         number=puzzle.number,
         grid=engine.render_share_grid(),
@@ -71,6 +72,7 @@ def _build_connections_embed(record: GameRecord, engine: ConnectionsEngine, puzz
         model=record.model,
         mistakes=record.num_mistakes,
         won=record.outcome is Outcome.WIN,
+        all_words=all_words,
     )
 
 

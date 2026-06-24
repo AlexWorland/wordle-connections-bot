@@ -190,7 +190,7 @@ def build_app(settings: Settings) -> FastAPI:
                     "num_guesses": r.num_guesses,
                     "num_mistakes": r.num_mistakes,
                     "turns": [
-                        {"guess": t.guess, "reasoning": t.reasoning}
+                        {"guess": t.guess, "reasoning": t.reasoning, "retries": t.retries}
                         for t in r.turns
                     ],
                     "postmortem": postmortem,

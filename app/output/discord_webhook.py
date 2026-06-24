@@ -32,6 +32,13 @@ def build_wordle_embed(
     }
 
 
+def _word_grid(words: list[str], cols: int = 4) -> str:
+    """Format a flat word list into a fixed-width cols-per-row grid."""
+    col_width = max(len(w) for w in words) + 2
+    rows = [words[i:i + cols] for i in range(0, len(words), cols)]
+    return "\n".join("  ".join(w.ljust(col_width) for w in row) for row in rows)
+
+
 def build_connections_embed(
     number: int | None,
     grid: str,
@@ -39,10 +46,12 @@ def build_connections_embed(
     model: str,
     mistakes: int,
     won: bool,
+    all_words: list[str] | None = None,
 ) -> dict:
     outcome = "solved" if won else "failed"
     title = f"Connections #{number}" if number is not None else "Connections"
-    description = f"{grid}\n\nMistakes: {mistakes}\n\n||{groups_text}||"
+    word_grid_block = f"```\n{_word_grid(sorted(all_words))}\n```\n\n" if all_words else ""
+    description = f"{word_grid_block}{grid}\n\nMistakes: {mistakes}\n\n||{groups_text}||"
     return {
         "title": f"{title} — {outcome}",
         "description": description,
