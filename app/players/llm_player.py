@@ -151,25 +151,36 @@ class LLMPlayer:
         turns: list[TurnRecord] = []
         history: list[dict[str, str]] = []
         while engine.status is None:
+            # Phase 1 — structural retries for JSON/schema failures only.
             correction: str | None = None
-            retries = 0
+            schema_retries = 0
             while True:
-                if retries > self.s.max_invalid_retries:
+                if schema_retries > self.s.max_invalid_retries:
                     raise InvalidMoveExhausted("wordle")
                 try:
                     turn, history = self._ask(
                         template, WordleTurn, engine.render_state(), correction, history
                     )
+                    break
                 except (ValidationError, json.JSONDecodeError) as e:
                     correction = f"Invalid JSON for the schema: {e}. Reply ONLY with JSON."
-                    retries += 1
-                    continue
-                assert isinstance(turn, WordleTurn)
-                problem = engine.validate_guess(turn.guess)
-                if problem is None:
-                    break
-                correction = problem.feedback
-                retries += 1
+                    schema_retries += 1
+
+            # Phase 2 — one move correction allowed (non-word, hard-mode violation).
+            # The game state shows all constraints; one chance to fix, then error.
+            assert isinstance(turn, WordleTurn)
+            problem = engine.validate_guess(turn.guess)
+            if problem is not None:
+                correction = f"[VALIDATOR] {problem.feedback}"
+                try:
+                    turn, history = self._ask(
+                        template, WordleTurn, engine.render_state(), correction, history
+                    )
+                except (ValidationError, json.JSONDecodeError):
+                    raise InvalidMoveExhausted("wordle")
+                if engine.validate_guess(turn.guess) is not None:
+                    raise InvalidMoveExhausted("wordle")
+
             marks = engine.apply_guess(turn.guess)
             turns.append(
                 TurnRecord(
@@ -177,7 +188,7 @@ class LLMPlayer:
                     turn.guess.lower(),
                     "".join(m.value for m in marks),
                     turn.reasoning,
-                    retries,
+                    schema_retries,
                 )
             )
         postmortem: str | None = None
@@ -195,25 +206,38 @@ class LLMPlayer:
         turns: list[TurnRecord] = []
         history: list[dict[str, str]] = []
         while engine.status is None:
+            # Phase 1 — structural retries: only for JSON/schema failures.
+            # The model failed to produce parseable output; retry with a correction.
             correction: str | None = None
-            retries = 0
+            schema_retries = 0
             while True:
-                if retries > self.s.max_invalid_retries:
+                if schema_retries > self.s.max_invalid_retries:
                     raise InvalidMoveExhausted("connections")
                 try:
                     turn, history = self._ask(
                         template, ConnectionsTurn, engine.render_state(), correction, history
                     )
+                    break
                 except (ValidationError, json.JSONDecodeError) as e:
                     correction = f"Invalid JSON for the schema: {e}. Reply ONLY with JSON."
-                    retries += 1
-                    continue
-                assert isinstance(turn, ConnectionsTurn)
-                problem = engine.validate_selection(turn.group)
-                if problem is None:
-                    break
-                correction = problem.feedback
-                retries += 1
+                    schema_retries += 1
+
+            # Phase 2 — one move correction allowed.
+            # The game state lists all available words. If the model selects words not
+            # in the pool it gets one correction; a second failure ends the game.
+            assert isinstance(turn, ConnectionsTurn)
+            problem = engine.validate_selection(turn.group)
+            if problem is not None:
+                correction = f"[VALIDATOR] {problem.feedback}"
+                try:
+                    turn, history = self._ask(
+                        template, ConnectionsTurn, engine.render_state(), correction, history
+                    )
+                except (ValidationError, json.JSONDecodeError):
+                    raise InvalidMoveExhausted("connections")
+                if engine.validate_selection(turn.group) is not None:
+                    raise InvalidMoveExhausted("connections")
+
             result = engine.submit(turn.group)
             turns.append(
                 TurnRecord(
@@ -221,7 +245,7 @@ class LLMPlayer:
                     "/".join(turn.group),
                     result.value,
                     turn.reasoning,
-                    retries,
+                    schema_retries,
                 )
             )
         return turns
