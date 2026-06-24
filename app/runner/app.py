@@ -169,8 +169,15 @@ def build_app(settings: Settings) -> FastAPI:
     @app.get("/preview")
     def preview(
         game: Literal["wordle", "connections", "both"] = "both",
+        x_play_token: str | None = Header(default=None),
     ) -> dict[str, object]:
         """Play today's game(s) and return the Discord embed payload without posting."""
+        if not settings.manual_trigger_enabled:
+            raise HTTPException(status_code=403, detail="Manual trigger is disabled")
+        if settings.play_auth_token and not hmac.compare_digest(
+            x_play_token or "", settings.play_auth_token
+        ):
+            raise HTTPException(status_code=401, detail="Invalid or missing X-Play-Token")
         game_types = _GAME_TYPES[game]
         results = run_cycle(settings, game_types, dry_run=True)
         return {
