@@ -213,6 +213,21 @@ class LLMPlayer:
         turns: list[TurnRecord] = []
         history: list[dict[str, str]] = []
         while engine.status is None:
+            # Forced final group: once 3 groups are solved, the last 4 words are the
+            # only possible group — auto-submit them. This mirrors NYT Connections
+            # (which completes the last group for you) and avoids a guaranteed-correct
+            # move being lost to the model hallucinating already-solved words.
+            remaining = sorted(engine.remaining_words)
+            if len(remaining) == 4:
+                result = engine.submit(remaining)
+                turns.append(
+                    TurnRecord(
+                        len(turns), "/".join(remaining), result.value,
+                        "Forced final group — only 4 words remain.", 0,
+                    )
+                )
+                continue
+
             # Phase 1 — structural retries: only for JSON/schema failures.
             # The model failed to produce parseable output; retry with a correction.
             correction: str | None = None
@@ -244,11 +259,10 @@ class LLMPlayer:
                 problem = engine.validate_selection(turn.group)
                 assert problem is not None
                 if problem.reason == "repeat":
-                    remaining = engine.remaining_words
                     correction = (
                         f"[VALIDATOR] You already submitted exactly those 4 words. "
                         f"DO NOT repeat them. The remaining words are: "
-                        f"{', '.join(sorted(remaining))}. "
+                        f"{', '.join(sorted(engine.remaining_words))}. "
                         f"Choose a completely different group of 4."
                     )
                 else:
